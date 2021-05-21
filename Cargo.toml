@@ -8,5 +8,6 @@ edition = "2018"
 
 [dependencies]
 actix-web = "3"
+actix-rt = "2.2"
 futures = "0.3"
 r-cache = "0.4"
