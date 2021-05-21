@@ -1,10 +1,10 @@
 use actix_web::{error, get, post, web, App, Error, HttpResponse, HttpServer};
 use futures::StreamExt;
-use std::collections::HashMap;
-use std::sync::Mutex;
+use r_cache::cache::Cache;
+use std::time::Duration;
 
 struct AppState {
-    db: Mutex<HashMap<String, String>>,
+    db: Cache<String, String>,
 }
 
 const MAX_SIZE: usize = 10_000_000;
@@ -24,10 +24,9 @@ async fn write(
         body.extend_from_slice(&chunk);
     }
 
-    let mut db = data.db.lock().unwrap();
     match String::from_utf8(body.to_vec()) {
         Ok(value) => {
-            db.insert(key, value);
+            data.db.set(key, value, None).await;
             Ok(HttpResponse::Ok().into())
         }
         Err(_) => Err(HttpResponse::BadRequest().into()),
@@ -39,8 +38,7 @@ async fn read(
     web::Path(key): web::Path<String>,
     data: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
-    let db = data.db.lock().unwrap();
-    match db.get(&key) {
+    match data.db.get(&key).await {
         Some(val) => Ok(HttpResponse::Ok().body(val)),
         None => Err(HttpResponse::NotFound().into()),
     }
@@ -48,9 +46,8 @@ async fn read(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let prefilled_db = HashMap::new();
     let db = web::Data::new(AppState {
-        db: Mutex::new(prefilled_db),
+        db: Cache::new(Some(Duration::from_secs(60 * 30))),
     });
 
     HttpServer::new(move || App::new().app_data(db.clone()).service(write).service(read))
