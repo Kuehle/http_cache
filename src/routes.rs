@@ -20,9 +20,7 @@ pub async fn write(
 
     match String::from_utf8(body.to_vec()) {
         Ok(value) => {
-            let key_copy = key.clone();
             data.db.set(key, value, None).await;
-            println!("{:?}", data.db.get(&key_copy).await);
             Ok(HttpResponse::Ok().into())
         }
         Err(_) => Err(HttpResponse::BadRequest().into()),
